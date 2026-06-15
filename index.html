@@ -1,200 +1,158 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Raiyath Kande</title>
+<title>Raiyath Kande Deluxe</title>
 <style>
-body{margin:0;background:#111;color:#fff;font-family:Arial,sans-serif;overflow:hidden}
-#menu,#gameOver{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(0,0,0,.85);z-index:10}
-button,select{padding:10px;margin:5px}
+*{box-sizing:border-box}body{margin:0;overflow:hidden;font-family:Segoe UI;background:#001}
 canvas{display:block}
-#hud{position:absolute;top:10px;left:10px;font-weight:bold}
+.panel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#022,#147,#6ad)}
+.card{background:rgba(0,0,0,.55);padding:25px;border-radius:20px;color:#fff;min-width:420px}
+.row{display:flex;gap:10px}
+.char{flex:1;border:2px solid #777;border-radius:12px;padding:10px;text-align:center;cursor:pointer}
+.char.sel{border-color:gold}
+button,select,input{padding:10px;border-radius:10px;border:none;margin:5px;width:100%}
+#hud{position:absolute;top:10px;left:10px;color:#fff;font-weight:bold;z-index:3}
+#pause,#gameover,#menu{z-index:5}
+.hidden{display:none}
 </style>
 </head>
 <body>
-<div id="menu">
-<h1>RAIYATH KANDE</h1>
-<p>Select Character</p>
-<select id="char">
-<option value="1">Raiyath (rai.gif)</option>
-<option value="2">Zarin't (zar.gif)</option>
-</select>
+<div id="menu" class="panel">
+<div class="card">
+<h1>2.7 Kande Deluxe</h1>
+<div class="row">
+<div class="char sel" id="c1">Rai<br><small>rai.png</small></div>
+<div class="char" id="c2">Zarin<br><small>zarin't.png</small></div>
+</div>
 <select id="difficulty">
-<option value="easy">Easy</option>
-<option value="normal">Normal</option>
-<option value="hard">Hard</option>
+<option>Easy</option><option selected>Normal</option><option>Hard</option>
 </select>
-<button onclick="startGame()">Start Game</button>
+<label>Sound <input type="checkbox" id="sound" checked></label>
+<button onclick="startGame()">Start Adventure</button>
+</div>
 </div>
 
-<div id="gameOver" style="display:none">
-<h1>Game Over</h1>
-<div id="finalScore"></div>
-<button onclick="restart()">Restart</button>
-</div>
-
-<div id="hud">Score: <span id="score">0</span> | Donuts: <span id="donuts">0</span></div>
-<canvas id="game"></canvas>
+<div id="pause" class="panel hidden"><div class="card"><h2>Paused</h2><button onclick="togglePause()">Resume</button></div></div>
+<div id="gameover" class="panel hidden"><div class="card"><h2>Game Over</h2><div id="res"></div><button onclick="startGame()">Restart</button></div></div>
+<div id="hud">Score: <span id="s">0</span> | Donuts: <span id="d">0</span> | P=Pause</div>
+<canvas id="cv"></canvas>
 
 <script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
-function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
-resize();addEventListener("resize",resize);
+const cv=cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+function rs(){cv.width=innerWidth;cv.height=innerHeight}rs();onresize=rs;
 
-let bird,obstacles,coins,score,donuts,gameRunning=false,speed=3,gap=180;
+const rai=new Image();rai.src='rai.png';
+const zar=new Image();zar.src="zarint.png";
+const donutImg=new Image();donutImg.src='donut.gif';
+
+let selected='rai',run=false,paused=false,b,pipes=[],coins=[],clouds=[],score=0,donuts=0,speed=4,gap=200;
+c1.onclick=()=>{selected='rai';c1.classList.add('sel');c2.classList.remove('sel')}
+c2.onclick=()=>{selected='zarin';c2.classList.add('sel');c1.classList.remove('sel')}
+
+function beep(f=400,t=.08){
+ if(!sound.checked)return;
+ let a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();
+ o.connect(g);g.connect(a.destination);o.frequency.value=f;o.start();g.gain.setValueAtTime(.03,a.currentTime);
+ o.stop(a.currentTime+t);
+}
 
 function startGame(){
- const d=document.getElementById("difficulty").value;
- if(d==="easy"){speed=2;gap=220;}
- if(d==="normal"){speed=3;gap=180;}
- if(d==="hard"){speed=5;gap=140;}
- document.getElementById("menu").style.display="none";
- restart();
+ menu.classList.add('hidden');gameover.classList.add('hidden');
+ score=donuts=0;pipes=[];coins=[];clouds=[];
+ b={x:180,y:250,vy:0,w:70,h:70};
+ let d=difficulty.value;
+ if(d==='Easy'){speed=3;gap=240}
+ if(d==='Normal'){speed=4.5;gap=200}
+ if(d==='Hard'){speed=6;gap=160}
+ for(let i=0;i<6;i++)clouds.push({x:i*250,y:50+Math.random()*180,s:.5+Math.random()});
+ run=true;paused=false;
 }
+setInterval(()=>{
+ if(!run||paused)return;
+ let t=80+Math.random()*(cv.height-450);
+ let n=['STA','EMIR','BLOCK OWNER'][Math.floor(Math.random()*3)];
+ pipes.push({x:cv.width,top:t,bot:t+gap,name:n,p:false});
+ coins.push({x:cv.width+120,y:t+gap/2});
+},1800);
 
-function restart(){
- bird={x:150,y:250,vy:0};
- obstacles=[];coins=[];score=0;donuts=0;
- document.getElementById("gameOver").style.display="none";
- gameRunning=true;
-}
+function togglePause(){if(run){paused=!paused;pause.classList.toggle('hidden',!paused)}}
+onkeydown=e=>{if(e.code==='Space'){b.vy=-10;beep(600)} if(e.key==='p'||e.key==='P')togglePause()}
+onmousedown=()=>{if(run&&!paused){b.vy=-10;beep(600)}}
 
-function spawnObstacle(){
- let topH=Math.random()*(canvas.height-350)+50;
- let names=["STA","EMIR","BLOCK OWNER"];
- obstacles.push({
-   x:canvas.width,
-   top:topH,
-   bottom:topH+gap,
-   name:names[Math.floor(Math.random()*names.length)],
-   passed:false
- });
- if(Math.random()<0.7){
-   coins.push({x:canvas.width+100,y:topH+gap/2});
- }
-}
-
-setInterval(()=>{if(gameRunning)spawnObstacle();},1800);
-
-function jump(){if(gameRunning)bird.vy=-9;}
-addEventListener("keydown",e=>{
- if(e.code==="Space") jump();
-});
-addEventListener("mousedown",jump);
-addEventListener("touchstart",jump);
-
-function drawSea(){
- ctx.fillStyle="#157bd1";
- ctx.fillRect(0,canvas.height-120,canvas.width,120);
-
- ctx.fillStyle="#3ba55c";
- ctx.beginPath();
- ctx.ellipse(180,canvas.height-130,90,40,0,0,Math.PI*2);
- ctx.fill();
-
- ctx.fillStyle="white";
- ctx.fillText("Hanguar",145,canvas.height-125);
- ctx.fillText("Taor",20,canvas.height-20);
+function die(){
+ run=false;
+ let hs=Math.max(score,+(localStorage.rkdeluxe||0));localStorage.rkdeluxe=hs;
+ res.innerHTML=`Score ${score}<br>Donuts ${donuts}<br>High Score ${hs}<br>${donuts>=10?'🏆 Donut Lover Achievement':''}`;
+ gameover.classList.remove('hidden');
+ beep(120,.2);
 }
 
 function update(){
- if(!gameRunning) return;
+ if(!run||paused)return;
+ b.vy+=0.55;b.y+=b.vy;
+ if(b.y<0||b.y+b.h>cv.height-120)die();
 
- bird.vy+=0.5;
- bird.y+=bird.vy;
+ clouds.forEach(c=>{c.x-=c.s;if(c.x<-100)c.x=cv.width+100});
 
- if(bird.y<0||bird.y>canvas.height-120){
-   gameOver();
- }
+ pipes.forEach(p=>{
+  p.x-=speed;
+  if(!p.p&&p.x+80<b.x){p.p=true;score++;}
+  if(b.x+b.w>p.x&&b.x<p.x+80&&(b.y<p.top||b.y+b.h>p.bot))die();
+ });
+ coins.forEach(c=>{
+  c.x-=speed;
+  if(Math.hypot((b.x+35)-c.x,(b.y+35)-c.y)<35){c.hit=1;score+=5;donuts++;beep(900)}
+ });
+ pipes=pipes.filter(p=>p.x>-100);
+ coins=coins.filter(c=>c.x>-50&&!c.hit);
+ s.textContent=score;d.textContent=donuts;
+}
 
- for(let o of obstacles){
-   o.x-=speed;
-
-   if(!o.passed && o.x+70<bird.x){
-      score++;
-      o.passed=true;
-   }
-
-   if(
-      bird.x+40>o.x &&
-      bird.x<o.x+70 &&
-      (bird.y<o.top || bird.y+40>o.bottom)
-   ){
-      gameOver();
-   }
- }
-
- for(let c of coins){
-   c.x-=speed;
-
-   let dx=(bird.x+20)-c.x;
-   let dy=(bird.y+20)-c.y;
-
-   if(Math.sqrt(dx*dx+dy*dy)<30){
-      donuts++;
-      score+=5;
-      c.hit=true;
-   }
- }
-
- obstacles=obstacles.filter(o=>o.x>-100);
- coins=coins.filter(c=>c.x>-50 && !c.hit);
-
- document.getElementById("score").textContent=score;
- document.getElementById("donuts").textContent=donuts;
+function drawCloud(x,y){
+ ctx.fillStyle='rgba(255,255,255,.8)';
+ ctx.beginPath();ctx.arc(x,y,25,0,7);ctx.arc(x+25,y-10,25,0,7);ctx.arc(x+50,y,25,0,7);ctx.fill();
 }
 
 function draw(){
- ctx.clearRect(0,0,canvas.width,canvas.height);
+ let g=ctx.createLinearGradient(0,0,0,cv.height);
+ g.addColorStop(0,'#7ec8ff');g.addColorStop(1,'#e8f9ff');
+ ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);
 
- let grad=ctx.createLinearGradient(0,0,0,canvas.height);
- grad.addColorStop(0,"#87ceeb");
- grad.addColorStop(1,"#dff5ff");
- ctx.fillStyle=grad;
- ctx.fillRect(0,0,canvas.width,canvas.height);
+ clouds.forEach(c=>drawCloud(c.x,c.y));
 
- for(let o of obstacles){
-   ctx.fillStyle="#c62828";
-   ctx.fillRect(o.x,0,70,o.top);
-   ctx.fillRect(o.x,o.bottom,70,canvas.height-o.bottom-120);
+ pipes.forEach(p=>{
+  ctx.fillStyle='#a11';ctx.fillRect(p.x,0,80,p.top);ctx.fillRect(p.x,p.bot,80,cv.height-p.bot-120);
+  ctx.fillStyle='#fff';ctx.fillText(p.name,p.x+5,p.top+20);
+ });
 
-   ctx.fillStyle="white";
-   ctx.fillText(o.name,o.x+5,o.top+20);
+ coins.forEach(c=>{
+  if(donutImg.complete&&donutImg.naturalWidth)ctx.drawImage(donutImg,c.x-20,c.y-20,40,40);
+  else {ctx.font='30px serif';ctx.fillText('🍩',c.x-15,c.y+10);}
+ });
+
+ let img=selected==='rai'?rai:zar;
+ if(img.complete&&img.naturalWidth) ctx.drawImage(img,b.x,b.y,b.w,b.h);
+ else {ctx.fillStyle='gold';ctx.fillRect(b.x,b.y,b.w,b.h)}
+
+ // animated sea
+ ctx.fillStyle='#1d7ddc';ctx.fillRect(0,cv.height-120,cv.width,120);
+ ctx.strokeStyle='#8fd3ff';ctx.lineWidth=3;
+ ctx.beginPath();
+ for(let x=0;x<cv.width;x+=10){
+  ctx.lineTo(x,cv.height-110+Math.sin((x+Date.now()/120)/20)*5);
  }
+ ctx.stroke();
 
- for(let c of coins){
-   ctx.fillStyle="pink";
-   ctx.beginPath();
-   ctx.arc(c.x,c.y,15,0,Math.PI*2);
-   ctx.fill();
-   ctx.fillStyle="#fff";
-   ctx.fillText("🍩",c.x-8,c.y+5);
- }
-
- ctx.fillStyle="gold";
- ctx.fillRect(bird.x,bird.y,40,40);
- ctx.fillStyle="#000";
- ctx.fillText(document.getElementById("char").value==="1"?"R":"K",bird.x+13,bird.y+25);
-
- drawSea();
+ ctx.fillStyle='#3cb371';
+ ctx.beginPath();ctx.ellipse(180,cv.height-130,100,45,0,0,7);ctx.fill();
+ ctx.fillStyle='#fff';
+ ctx.fillText('Hanguar',140,cv.height-125);
+ ctx.fillText('Taor',20,cv.height-20);
 }
 
-function gameOver(){
- gameRunning=false;
- localStorage.raiyathHigh=Math.max(score, +(localStorage.raiyathHigh||0));
- document.getElementById("finalScore").innerHTML=
- "Score: "+score+"<br>Donuts: "+donuts+"<br>High Score: "+localStorage.raiyathHigh;
- document.getElementById("gameOver").style.display="flex";
-}
-
-function loop(){
- update();
- draw();
- requestAnimationFrame(loop);
-}
-loop();
+(function loop(){update();draw();requestAnimationFrame(loop)})();
 </script>
 </body>
 </html>
