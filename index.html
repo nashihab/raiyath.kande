@@ -74,7 +74,7 @@ function rs(){
   W = canvas.width  = innerWidth;
   H = canvas.height = innerHeight;
   SEA_H  = Math.round(H * 0.13);   // sea zone height
-  PIPE_W = Math.round(W * 0.082);  // pipe width scales with screen
+  PIPE_W = Math.round(W * 0.062);  // pipe width scales with screen
   CHAR_W = Math.round(W * 0.04);   // character size
   CHAR_H = CHAR_W;
   FONT_S = Math.max(11, Math.round(W * 0.015));
@@ -133,9 +133,9 @@ function startGame(){
 
   let diff=document.getElementById('difficulty').value;
   // Speed is fraction of screen width per frame — feels consistent on all sizes
-  if(diff==='Easy')   { speed=W*0.0028; gap=H*0.30; }
-  if(diff==='Normal') { speed=W*0.0038; gap=H*0.27; }
-  if(diff==='Hard')   { speed=W*0.0055; gap=H*0.23; }
+  if(diff==='Easy')   { speed=W*0.0028; gap=H*0.32; }
+  if(diff==='Normal') { speed=W*0.0038; gap=H*0.29; }
+  if(diff==='Hard')   { speed=W*0.0055; gap=H*0.25; }
 
   for(let i=0;i<6;i++)
     clouds.push({x:i*(W/5),y:30+Math.random()*(H*.18),s:.3+Math.random()*.5,sz:Math.max(14,W*.025)+Math.random()*12});
